@@ -1,0 +1,6 @@
+matplotlib
+pytorch-lightning==1.8.3.post0
+scikit-learn
+scikit-image>=0.16.1
+tensorflow
+segmentation-models-pytorch

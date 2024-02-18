@@ -1,0 +1,4 @@
+torch
+torchvision
+torchaudio
+-i https://download.pytorch.org/whl/cu121
