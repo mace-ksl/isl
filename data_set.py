@@ -3,7 +3,7 @@ from PIL import Image,ImageSequence
 import numpy as np
 import torch 
 from torch.utils.data import DataLoader,TensorDataset
-
+import augment
 
 class DataSet():
     def __init__(self, data_dir):
@@ -107,7 +107,7 @@ class DataSet():
             
         return np.stack(stacked_arrays, axis=0)
     
-    def create_torch_data_loader(self,x_train,y_train,x_val,y_val, x_test,y_test, batch_size=10):
+    def create_torch_data_loader(self,x_train,y_train,x_val,y_val, x_test,y_test, batch_size=1,height=224,width=224):
         """
         Method:
             Create Tensor DataLoader and TensorDataset from uint16 numpy Array
@@ -130,12 +130,18 @@ class DataSet():
 
         #num_cpus = os.cpu_count()
         train_dataset = TensorDataset(torch.Tensor(x_train), torch.Tensor(y_train) )
+        train_dataset = augment.crop_dataset(train_dataset,height,width)
+        #augment.plot_random_image_from_dataset(train_dataset)
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
         
         val_dataset = TensorDataset(torch.Tensor(x_val), torch.Tensor(y_val))
+        val_dataset = augment.crop_dataset(val_dataset,height,width)
+        #augment.plot_random_image_from_dataset(val_dataset)
         val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
         test_dataset = TensorDataset(torch.Tensor(x_test), torch.Tensor(y_test))
+        test_dataset = augment.crop_dataset(test_dataset,height,width)
+        #augment.plot_random_image_from_dataset(test_dataset)
         test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
 

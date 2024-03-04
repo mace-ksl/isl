@@ -18,11 +18,11 @@ data_val_out = data.get_output_images_as_array("split_cy5","val")
 data_test_in = data.get_input_images_as_array("split_cy5","test")
 data_test_out = data.get_output_images_as_array("split_cy5","test")
 
-train_loader, val_loader, test_loader = data.create_torch_data_loader(data_train_in,data_train_out,data_val_in,data_val_out,data_test_in,data_test_out)
+train_loader, val_loader, test_loader = data.create_torch_data_loader(data_train_in,data_train_out,data_val_in,data_val_out,data_test_in,data_test_out, batch_size=1,height=256,width=256)
 
-model = model.Model("Unet", "mit_b2", in_channels=3, out_classes=1)
+model = model.Model("mit_b2")
 
-trainer = pl.Trainer(accelerator='gpu', devices=1,num_nodes=1, max_epochs=1000, default_root_dir = data.data_dir)
+trainer = pl.Trainer(accelerator='gpu', devices=1,num_nodes=1, max_epochs=1, default_root_dir = data.data_dir)
 
 trainer.fit(model, train_dataloaders=train_loader, val_dataloaders=val_loader)
 
@@ -73,3 +73,5 @@ for image, gt_mask, pr_mask in zip(batch[0], batch[1], pr_masks):
     plt.axis("off")
 
     plt.show()
+
+    

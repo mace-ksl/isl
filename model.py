@@ -1,23 +1,32 @@
 import segmentation_models_pytorch as smp 
 import torch
 import pytorch_lightning as pl 
-
+import torchseg
 class Model(pl.LightningModule):
 
-    def __init__(self, arch, encoder_name, in_channels, out_classes, **kwargs):
+    def __init__(self, encoder_name, **kwargs):
         super().__init__()
-        self.model = smp.create_model(
-            arch, encoder_name=encoder_name, in_channels=in_channels, classes=out_classes, **kwargs
-        )
-
+        #self.model = smp.create_model(
+        #    arch, encoder_name=encoder_name, in_channels=in_channels, classes=out_classes, **kwargs
+        #)
+        self.model = torchseg.Unet(
+                    "maxvit_small_tf_224",
+                    in_channels=3,
+                    classes=1,
+                    encoder_weights=True,
+                    encoder_depth=5,
+                    decoder_channels=(256, 128, 64, 32, 16),
+                    encoder_params={"img_size": 256}
+                )
         # preprocessing parameteres for image
         params = smp.encoders.get_preprocessing_params(encoder_name)
         self.register_buffer("std", torch.tensor(params["std"]).view(1, 3, 1, 1))
         self.register_buffer("mean", torch.tensor(params["mean"]).view(1, 3, 1, 1))
 
         # for image segmentation dice loss could be the best first choice
-        self.loss_fn = smp.losses.DiceLoss(smp.losses.BINARY_MODE, from_logits=True)
-
+        #self.loss_fn = smp.losses.DiceLoss(smp.losses.BINARY_MODE, from_logits=True)
+        self.loss_fn = torch.nn.L1Loss()
+        #self.loss_fn = torch.nn.MSELoss()
     def forward(self, image):
         # normalize image here
         image = (image - self.mean) / self.std
@@ -69,8 +78,8 @@ class Model(pl.LightningModule):
         # first convert mask values to probabilities, then
         # apply thresholding
         prob_mask = logits_mask.sigmoid()
-        pred_mask = (prob_mask > 0.5).float()
-
+        #pred_mask = (prob_mask > 0.5).float()
+        pred_mask = prob_mask
         # We will compute IoU metric by two ways
         #   1. dataset-wise
         #   2. image-wise
@@ -78,7 +87,6 @@ class Model(pl.LightningModule):
         # true negative 'pixels' for each image and class
         # these values will be aggregated in the end of an epoch
         tp, fp, fn, tn = smp.metrics.get_stats(pred_mask.long(), mask.long(), mode="binary")
-
         return {
             "loss": loss,
             "tp": tp,
