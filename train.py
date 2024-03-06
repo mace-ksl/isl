@@ -5,9 +5,14 @@ import model
 import pytorch_lightning as pl 
 from pprint import pprint
 import torch
+import time
 
+start_time = time.time()
 path = os.path.join(os.getcwd(),"data_set")
 data = data_set.DataSet(path)
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+initial_memory = torch.cuda.memory_allocated(device)
+print(f"Initial GPU memory usage: {initial_memory / (1024 ** 3):.2f} GB")
 
 data_train_in = data.get_input_images_as_array("split_cy5","train")
 data_train_out = data.get_output_images_as_array("split_cy5","train")
@@ -21,6 +26,8 @@ data_test_out = data.get_output_images_as_array("split_cy5","test")
 train_loader, val_loader, test_loader = data.create_torch_data_loader(data_train_in,data_train_out,data_val_in,data_val_out,data_test_in,data_test_out, batch_size=1,height=256,width=256)
 
 model = model.Model("mit_b2")
+after_forward_memory = torch.cuda.memory_allocated(device)
+print(f"GPU memory usage after forward pass: {after_forward_memory / (1024 ** 3):.2f} GB")
 
 trainer = pl.Trainer(accelerator='gpu', devices=1,num_nodes=1, max_epochs=1, default_root_dir = data.data_dir)
 
@@ -75,3 +82,6 @@ for image, gt_mask, pr_mask in zip(batch[0], batch[1], pr_masks):
     plt.show()
 
     
+end_time = time.time()
+elapsed_time = end_time - start_time
+print(f"Script execution time: {elapsed_time:.2f} seconds")

@@ -1,14 +1,27 @@
-import segmentation_models_pytorch as smp 
+import segmentation_models_pytorch as smp
 import torch
 import pytorch_lightning as pl 
 import torchseg
-class Model(pl.LightningModule):
+import torch.nn as nn
+import io
 
-    def __init__(self, encoder_name, **kwargs):
+class Block(nn.Module):
+    def __init__(self, in_ch, out_ch):
         super().__init__()
-        #self.model = smp.create_model(
-        #    arch, encoder_name=encoder_name, in_channels=in_channels, classes=out_classes, **kwargs
-        #)
+        self.conv = nn.Conv2d(in_ch, out_ch, 3, padding="same")
+        self.batch = nn.BatchNorm2d(out_ch)
+        self.relu = nn.ReLU()
+    
+    def forward(self, x):
+        return self.relu(self.batch(self.conv(x)))
+
+class Model(pl.LightningModule,nn.Module):
+
+    def __init__(self,model_path, encoder_name,learning_rate **kwargs):
+        super().__init__()
+
+        # Create torchseg MaxViT model from timm
+        # Paper: https://arxiv.org/abs/2204.01697 MaxViT: Multi-Axis Vision Transformer
         self.model = torchseg.Unet(
                     "maxvit_small_tf_224",
                     in_channels=3,
@@ -18,23 +31,33 @@ class Model(pl.LightningModule):
                     decoder_channels=(256, 128, 64, 32, 16),
                     encoder_params={"img_size": 256}
                 )
-        # preprocessing parameteres for image
+        checkpoint = torch.load(r"C:\Users\Marcel\Desktop\models\maxvit_smal_tf_224_256x256_batch20_epoch200/model.ckpt")
+        #print(checkpoint)
+        self.model.load_state_dict(checkpoint["state_dict"],strict=False)
+
+        #self.u_net.load_state_dict(checkpoint)
+        # preprocessing parameteres
         params = smp.encoders.get_preprocessing_params(encoder_name)
         self.register_buffer("std", torch.tensor(params["std"]).view(1, 3, 1, 1))
         self.register_buffer("mean", torch.tensor(params["mean"]).view(1, 3, 1, 1))
 
-        # for image segmentation dice loss could be the best first choice
-        #self.loss_fn = smp.losses.DiceLoss(smp.losses.BINARY_MODE, from_logits=True)
+        self.learning_rate = learning_rate
+        self.loss_fn_binary = smp.losses.DiceLoss(smp.losses.BINARY_MODE, from_logits=True)
         self.loss_fn = torch.nn.L1Loss()
+        
         #self.loss_fn = torch.nn.MSELoss()
+        self.block_1 = Block(1, 2)
+        self.block_2 = Block(2, 2)
+
     def forward(self, image):
-        # normalize image here
+        # normalize image
         image = (image - self.mean) / self.std
         mask = self.model(image)
-        
         #print("Image device:", image.device)
         #print("Mask device:", mask.device)
-        return mask
+        output = self.block_1(mask)
+        output = self.block_2(output)
+        return output
 
     def shared_step(self, batch, stage):
         
@@ -42,15 +65,10 @@ class Model(pl.LightningModule):
         #print(image.shape)
         #image = image.permute(0, 3, 1, 2)
         #print(image.shape)
+
         # Shape of the image should be (batch_size, num_channels, height, width)
-        # if you work with grayscale images, expand channels dim to have [batch_size, 1, height, width]
         assert image.ndim == 4
 
-        # Check that image dimensions are divisible by 32,
-        # encoder and decoder connected by `skip connections` and usually encoder have 5 stages of
-        # downsampling by factor 2 (2 ^ 5 = 32); e.g. if we have image with shape 65x65 we will have
-        # following shapes of features in encoder and decoder: 84, 42, 21, 10, 5 -> 5, 10, 20, 40, 80
-        # and we will get an error trying to concat these features
         h, w = image.shape[2:]
         #print(h,w)
         assert h % 32 == 0 and w % 32 == 0
@@ -58,40 +76,38 @@ class Model(pl.LightningModule):
         mask = batch[1]
         
         #print(type(mask))
-        #mask = mask.permute(0, 3, 1, 2)
 
         mask = mask / torch.max(mask)
 
         #mask = mask / 255.0
-        print(image.shape,mask.shape)
-        print(mask.max(),mask.min())
+
+        #print(image.shape,mask.shape)
+        #print(mask.max(),mask.min())
         # Shape of the mask should be [batch_size, num_classes, height, width]
-        # for binary segmentation num_classes = 1
-        assert mask.ndim == 4
+        
+
+        assert mask.ndim == 5
 
         # Check that mask values in between 0 and 1, NOT 0 and 255 for binary segmentation
         assert mask.max() <= 1.0 and mask.min() >= 0
 
         logits_mask = self.forward(image)
+        
+        print(f"Mask shape {mask.shape} - Image shape {image.shape} - Logits shape {logits_mask.shape}")
+        #print("------------------------------------------")
+        #print(logits_mask.shape,mask.shape)
+        mask=mask.squeeze(1)
 
-        # Predicted mask contains logits, and loss_fn param `from_logits` is set to True
-        loss = self.loss_fn(logits_mask, mask)
+        loss = self.loss_fn(logits_mask[:, 0:1, :, :], mask[:, 0:1, :, :])
 
-        # Lets compute metrics for some threshold
-        # first convert mask values to probabilities, then
-        # apply thresholding
+        loss_fn_binary = self.loss_fn_binary(logits_mask[:, 1:2, :, :],mask[:, 1:2, :, :])
+        combined_loss = 0.5 * loss + 0.5 * loss_fn_binary
         prob_mask = logits_mask.sigmoid()
-        #pred_mask = (prob_mask > 0.5).float()
         pred_mask = prob_mask
-        # We will compute IoU metric by two ways
-        #   1. dataset-wise
-        #   2. image-wise
-        # but for now we just compute true positive, false positive, false negative and
-        # true negative 'pixels' for each image and class
-        # these values will be aggregated in the end of an epoch
+        pred_mask = (prob_mask > 0.5).float()
         tp, fp, fn, tn = smp.metrics.get_stats(pred_mask.long(), mask.long(), mode="binary")
         return {
-            "loss": loss,
+            "loss": combined_loss,
             "tp": tp,
             "fp": fp,
             "fn": fn,
@@ -142,4 +158,4 @@ class Model(pl.LightningModule):
         return self.shared_epoch_end(outputs, "test")
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=0.000001) # lr=0.0001 
+        return torch.optim.Adam(self.parameters(), lr=self.learning_rate) # lr=0.0001 
