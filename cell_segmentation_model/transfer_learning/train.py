@@ -61,8 +61,9 @@ train_loader, test_loader = data.create_torch_data_loader(x_train=data_train_in,
                                                           width=256)
 
 # Load pretrained CellMask Model
-#model_cell_mask = model.Model.load_from_checkpoint(cell_mask_model_path, encoder_name="mit_b2" )
-model_cell_mask = model.Model(cell_mask_model_path,"mit_b2",learning_rate)
+
+model_cell_mask = model.Model(model_path=cell_mask_model_path, encoder_name="mit_b2" ,learning_rate=learning_rate)
+#model_cell_mask = model.Model.load_from_checkpoint(cell_mask_model_path,model_path=cell_mask_model_path, encoder_name="mit_b2" ,learning_rate=learning_rate)
 
 trainer = pl.Trainer(accelerator='gpu', devices=1,num_nodes=1, max_epochs=max_epochs, default_root_dir = data.data_dir)
 

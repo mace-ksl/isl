@@ -17,7 +17,7 @@ class Block(nn.Module):
 
 class Model(pl.LightningModule,nn.Module):
 
-    def __init__(self,model_path, encoder_name,learning_rate **kwargs):
+    def __init__(self,model_path, encoder_name,learning_rate, **kwargs):
         super().__init__()
 
         # Create torchseg MaxViT model from timm
@@ -31,7 +31,8 @@ class Model(pl.LightningModule,nn.Module):
                     decoder_channels=(256, 128, 64, 32, 16),
                     encoder_params={"img_size": 256}
                 )
-        checkpoint = torch.load(r"C:\Users\Marcel\Desktop\models\maxvit_smal_tf_224_256x256_batch20_epoch200/model.ckpt")
+        #checkpoint = torch.load(r"C:\Users\Marcel\Desktop\models\maxvit_smal_tf_224_256x256_batch20_epoch200/model.ckpt")
+        checkpoint = torch.load(model_path)
         #print(checkpoint)
         self.model.load_state_dict(checkpoint["state_dict"],strict=False)
 

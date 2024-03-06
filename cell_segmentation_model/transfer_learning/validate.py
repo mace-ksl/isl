@@ -29,11 +29,12 @@ components = current_path.split(os.path.sep)
 data_set_path= components[0] + os.path.sep + os.path.join(*components[1:-2], 'data_set')
 data = data_set.DataSet(data_set_path)
 
-data_train_in = data.get_input_images_as_array("split_cy5","train")
-data_train_out = data.get_output_images_as_array("split_cy5","train")
+# Create train, validation and test sets as numpy arrays
+data_train_in = data.get_input_images_as_array(split_name,"train")
+data_train_out = data.get_output_images_as_array(split_name,"train")
 
-data_test_in = data.get_input_images_as_array("split_cy5","test")
-data_test_out = data.get_output_images_as_array("split_cy5","test")
+data_test_in = data.get_input_images_as_array(split_name,"test")
+data_test_out = data.get_output_images_as_array(split_name,"test")
 
 # Create loaders
 train_loader, test_loader = data.create_torch_data_loader(x_train=data_train_in,
@@ -44,7 +45,7 @@ train_loader, test_loader = data.create_torch_data_loader(x_train=data_train_in,
                                                           height=256,
                                                           width=256)
 
-model_train = model.Model.load_from_checkpoint(r'C:\Users\Marcel\Desktop\models/model.ckpt', encoder_name="mit_b2" )
+model_train = model.Model.load_from_checkpoint(r'C:\Users\Marcel\Desktop\models/model.ckpt',model_path=cell_mask_model_path, encoder_name="mit_b2" ,learning_rate=learning_rate)
 
 trainer = pl.Trainer(accelerator='gpu', devices=1,num_nodes=1, max_epochs=1, default_root_dir = data.data_dir)
 
@@ -75,16 +76,16 @@ for image, gt_mask, pr_mask in zip(batch[0], batch[1], pr_masks):
 
     ground_truth_array = gt_mask.numpy().squeeze(0)   
     #print(ground_truth_array.shape)
-    # Plot the first image
     plt.subplot(1, 7, 4)
     plt.imshow(ground_truth_array[0], cmap='gray')
     plt.title("Ground truth topology")
-    plt.subplot(1, 7, 5)
     plt.axis("off")
-    # Plot the second image
+
+    plt.subplot(1, 7, 5)
     plt.imshow(ground_truth_array[1], cmap='gray')
     plt.title("Ground truth semantic")
     plt.axis("off")
+
     pr_mask_array = pr_mask.numpy()
     plt.subplot(1, 7, 6)
     plt.imshow(pr_mask_array[0],cmap='gray')
@@ -96,7 +97,8 @@ for image, gt_mask, pr_mask in zip(batch[0], batch[1], pr_masks):
     plt.imshow(pr_mask_array[1],cmap='gray')
     plt.title("Mask semantic")
     plt.axis("off")
-
+    
+    plt.tight_layout() 
     plt.show()
 
 # Validate model
