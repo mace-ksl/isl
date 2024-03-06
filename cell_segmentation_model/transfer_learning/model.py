@@ -4,6 +4,7 @@ import pytorch_lightning as pl
 import torchseg
 import torch.nn as nn
 import io
+import numpy as np
 
 class Block(nn.Module):
     def __init__(self, in_ch, out_ch):
@@ -43,9 +44,10 @@ class Model(pl.LightningModule):
 
         self.learning_rate = learning_rate
         self.loss_fn_binary = smp.losses.DiceLoss(smp.losses.BINARY_MODE, from_logits=True)
-        self.loss_fn = torch.nn.L1Loss()
-        
+        #self.loss_fn = torch.nn.L1Loss()
+        self.loss_fn = torch.nn.CrossEntropyLoss()
         #self.loss_fn = torch.nn.MSELoss()
+
         self.block_1 = Block(1, 2)
         self.block_2 = Block(2, 2)
 
@@ -53,10 +55,19 @@ class Model(pl.LightningModule):
         # normalize image
         image = (image - self.mean) / self.std
         mask = self.model(image)
-        #print("Image device:", image.device)
-        #print("Mask device:", mask.device)
+        
+        print("Image device:", image.shape)
+        print("Mask device:", mask.shape)
+        #Image device: torch.Size([1, 3, 256, 256])
+        #Mask device: torch.Size([1, 1, 256, 256])
+        # Upscaling
         output = self.block_1(mask)
+        print(f"Block_1: {output.shape}")
         output = self.block_2(output)
+        print(f"Block_2: {output.shape}")
+        #Block_1: torch.Size([1, 2, 256, 256])
+        #Block_2: torch.Size([1, 2, 256, 256])
+
         return output
 
     def shared_step(self, batch, stage):
@@ -89,19 +100,20 @@ class Model(pl.LightningModule):
         logits_mask = self.forward(image)
         
         print(f"Mask shape {mask.shape} - Image shape {image.shape} - Logits shape {logits_mask.shape}")
-        #print("------------------------------------------")
-        #print(logits_mask.shape,mask.shape)
+        # Mask shape torch.Size([1, 1, 2, 256, 256]) - Image shape torch.Size([1, 3, 256, 256]) - Logits shape torch.Size([1, 2, 256, 256])
         mask=mask.squeeze(1)
-        loss_l1 = self.loss_fn(logits_mask, mask)
-        #loss_fn_binary = self.loss_fn_binary(logits_mask[:, 1:2, :, :],mask[:, 1:2, :, :])
-        #loss = 0.5 * loss_l1 + 0.5 * loss_fn_binary
+
+        loss_l1 = self.loss_fn(logits_mask[:, 0:1, :, :], mask[:, 0:1, :, :])
+        loss_fn_binary = self.loss_fn_binary(logits_mask[:, 1:2, :, :],mask[:, 1:2, :, :])
+        loss = 0.5 * loss_l1 + 0.5 * loss_fn_binary
 
         prob_mask = logits_mask.sigmoid()
         pred_mask = prob_mask
         #pred_mask = (prob_mask > 0.5).float()
+   
         tp, fp, fn, tn = smp.metrics.get_stats(pred_mask.long(), mask.long(), mode="binary")
         return {
-            "loss": loss_l1,
+            "loss": loss,
             "tp": tp,
             "fp": fp,
             "fn": fn,
