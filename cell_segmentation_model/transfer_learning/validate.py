@@ -45,21 +45,32 @@ train_loader, test_loader = data.create_torch_data_loader(x_train=data_train_in,
                                                           height=256,
                                                           width=256)
 
+print(f"Load: {cell_mask_model_path}")
+#model_train = model.Model(model_path=cell_mask_model_path, encoder_name="mit_b2" ,learning_rate=learning_rate)
+#model_train = model_train.load_from_checkpoint(r'E:\Data_sets\Github\timm\isl\data_set/model.ckpt',model_path=cell_mask_model_path, encoder_name="mit_b2" ,learning_rate=learning_rate)
+
+# Load transfer learning model (better)
+# First way:
 model_train = model.Model.load_from_checkpoint(r'C:\Users\Marcel\Desktop\models/model.ckpt',model_path=cell_mask_model_path, encoder_name="mit_b2" ,learning_rate=learning_rate)
+# Second way:
+#model_train = model.Model(model_path=cell_mask_model_path, encoder_name="mit_b2" ,learning_rate=learning_rate)
+#model_train = model_train.load_from_checkpoint(r'E:\Data_sets\Github\timm\isl\data_set/model.ckpt',model_path=cell_mask_model_path, encoder_name="mit_b2" ,learning_rate=learning_rate)
 
-trainer = pl.Trainer(accelerator='gpu', devices=1,num_nodes=1, max_epochs=1, default_root_dir = data.data_dir)
+# ------------------------------
+# Load and test pretrained model
+#model_train = model.Model(model_path=cell_mask_model_path, encoder_name="mit_b2" ,learning_rate=learning_rate)
+
+# ------------------------------
+#trainer = pl.Trainer(accelerator='gpu', devices=1,num_nodes=1, max_epochs=1, default_root_dir = data.data_dir)
 
 
-
-# Result visualization
+# Result visualizations
 batch = next(iter(test_loader))
 with torch.no_grad():
     model_train.eval()
     logits = model_train(batch[0])
 pr_masks = logits.sigmoid()
 
-
-print("Batch: ",len(batch))
 
 for image, gt_mask, pr_mask in zip(batch[0], batch[1], pr_masks):
     plt.figure(figsize=(12, 5))

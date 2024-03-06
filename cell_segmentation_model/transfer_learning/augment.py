@@ -45,8 +45,8 @@ def crop_dataset(dataset, width=224,height=224):
     cropped_masks_tensor = cropped_masks_tensor.unsqueeze(1)
 
     # Print the shapes of the resulting tensors
-    print("Shape of input data: ",cropped_data_tensor.shape)
-    print("Shape of mask data: ",cropped_masks_tensor.shape)
+    #print("Shape of input data: ",cropped_data_tensor.shape)
+    #print("Shape of mask data: ",cropped_masks_tensor.shape)
 
     dataset = TensorDataset(torch.Tensor(cropped_data_tensor), torch.Tensor(cropped_masks_tensor) )
 

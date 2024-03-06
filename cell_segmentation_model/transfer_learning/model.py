@@ -15,7 +15,7 @@ class Block(nn.Module):
     def forward(self, x):
         return self.relu(self.batch(self.conv(x)))
 
-class Model(pl.LightningModule,nn.Module):
+class Model(pl.LightningModule):
 
     def __init__(self,model_path, encoder_name,learning_rate, **kwargs):
         super().__init__()
@@ -31,12 +31,11 @@ class Model(pl.LightningModule,nn.Module):
                     decoder_channels=(256, 128, 64, 32, 16),
                     encoder_params={"img_size": 256}
                 )
-        #checkpoint = torch.load(r"C:\Users\Marcel\Desktop\models\maxvit_smal_tf_224_256x256_batch20_epoch200/model.ckpt")
+        
         checkpoint = torch.load(model_path)
-        #print(checkpoint)
-        self.model.load_state_dict(checkpoint["state_dict"],strict=False)
+        cleared_state_dict = {key.replace('model.', '', 1) if key.startswith('model.') else key: value for key, value in checkpoint['state_dict'].items()}
+        self.model.load_state_dict(cleared_state_dict, strict=False)
 
-        #self.u_net.load_state_dict(checkpoint)
         # preprocessing parameteres
         params = smp.encoders.get_preprocessing_params(encoder_name)
         self.register_buffer("std", torch.tensor(params["std"]).view(1, 3, 1, 1))
@@ -82,11 +81,6 @@ class Model(pl.LightningModule,nn.Module):
 
         #mask = mask / 255.0
 
-        #print(image.shape,mask.shape)
-        #print(mask.max(),mask.min())
-        # Shape of the mask should be [batch_size, num_classes, height, width]
-        
-
         assert mask.ndim == 5
 
         # Check that mask values in between 0 and 1, NOT 0 and 255 for binary segmentation
@@ -98,17 +92,16 @@ class Model(pl.LightningModule,nn.Module):
         #print("------------------------------------------")
         #print(logits_mask.shape,mask.shape)
         mask=mask.squeeze(1)
+        loss_l1 = self.loss_fn(logits_mask, mask)
+        #loss_fn_binary = self.loss_fn_binary(logits_mask[:, 1:2, :, :],mask[:, 1:2, :, :])
+        #loss = 0.5 * loss_l1 + 0.5 * loss_fn_binary
 
-        loss = self.loss_fn(logits_mask[:, 0:1, :, :], mask[:, 0:1, :, :])
-
-        loss_fn_binary = self.loss_fn_binary(logits_mask[:, 1:2, :, :],mask[:, 1:2, :, :])
-        combined_loss = 0.5 * loss + 0.5 * loss_fn_binary
         prob_mask = logits_mask.sigmoid()
         pred_mask = prob_mask
-        pred_mask = (prob_mask > 0.5).float()
+        #pred_mask = (prob_mask > 0.5).float()
         tp, fp, fn, tn = smp.metrics.get_stats(pred_mask.long(), mask.long(), mode="binary")
         return {
-            "loss": combined_loss,
+            "loss": loss_l1,
             "tp": tp,
             "fp": fp,
             "fn": fn,

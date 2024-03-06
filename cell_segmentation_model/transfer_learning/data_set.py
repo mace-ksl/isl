@@ -130,7 +130,7 @@ class DataSet():
         Method:
             Create Tensor DataLoader and TensorDataset from uint16 numpy Array
         """
-        print(x_train)
+        #print(x_train)
         assert x_train is not None or y_train is not None
         assert x_test is not None or y_test is not None
 
