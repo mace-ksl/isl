@@ -43,10 +43,11 @@ class Model(pl.LightningModule):
         self.register_buffer("mean", torch.tensor(params["mean"]).view(1, 3, 1, 1))
 
         self.learning_rate = learning_rate
-        self.loss_fn_binary = smp.losses.DiceLoss(smp.losses.BINARY_MODE, from_logits=True)
+        #self.loss_fn_binary = smp.losses.DiceLoss(smp.losses.BINARY_MODE, from_logits=True)
         #self.loss_fn = torch.nn.L1Loss()
-        self.loss_fn = torch.nn.CrossEntropyLoss()
-        #self.loss_fn = torch.nn.MSELoss()
+        #self.loss_fn = torch.nn.CrossEntropyLoss()
+        self.loss_fn_binary = torch.nn.BCEWithLogitsLoss()
+        self.loss_fn = torch.nn.MSELoss()
 
         self.block_1 = Block(1, 2)
         self.block_2 = Block(2, 2)
@@ -103,9 +104,14 @@ class Model(pl.LightningModule):
         # Mask shape torch.Size([1, 1, 2, 256, 256]) - Image shape torch.Size([1, 3, 256, 256]) - Logits shape torch.Size([1, 2, 256, 256])
         mask=mask.squeeze(1)
 
-        loss_l1 = self.loss_fn(logits_mask[:, 0:1, :, :], mask[:, 0:1, :, :])
-        loss_fn_binary = self.loss_fn_binary(logits_mask[:, 1:2, :, :],mask[:, 1:2, :, :])
-        loss = 0.5 * loss_l1 + 0.5 * loss_fn_binary
+  
+        loss_l1 = self.loss_fn(logits_mask[:, 1:2, :, :], mask[:, 1:2, :, :])
+        loss_fn_binary = self.loss_fn_binary(logits_mask[:, 0:1, :, :],mask[:, 0:1, :, :])
+
+        #loss_l1 = self.loss_fn(logits_mask, mask)
+        #loss_fn_binary = self.loss_fn_binary(logits_mask,mask)
+
+        loss =  0.5*loss_l1 + 0.5*loss_fn_binary
 
         prob_mask = logits_mask.sigmoid()
         pred_mask = prob_mask

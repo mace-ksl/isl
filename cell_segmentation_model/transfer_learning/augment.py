@@ -31,7 +31,13 @@ def crop_dataset(dataset, width=224,height=224):
 
             #print(dataset[i][0].shape)
             #print(dataset[i][1].shape)
-            cropped_data_patch,cropped_mask_patch = randomCrop(dataset[i][0], dataset[i][1],width=width,height=height)
+            ok_crop = False
+            while(ok_crop == False):
+                cropped_data_patch,cropped_mask_patch = randomCrop(dataset[i][0], dataset[i][1],width=width,height=height)
+                # Cells that are big enough
+                if (cropped_mask_patch[0, :, :].reshape(-1) != 0).sum() > 15000:
+                    ok_crop = True
+            #print("---------",cropped_data_patch.shape,cropped_mask_patch.shape)
             #print(cropped_data_patch.shape)
             # Append the cropped patches to the lists
             cropped_data.append(cropped_data_patch.squeeze(0))  # Remove the batch dimension
