@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from pprint import pprint
 import yaml
+from scipy.stats import pearsonr
 
 # Set current path
 current_path = os.getcwd()
@@ -51,7 +52,7 @@ train_loader, test_loader = data.create_torch_data_loader(x_train=data_train_in,
 # First way:
 #model_train = model.Model.load_from_checkpoint(r'C:\Users\Marcel\Desktop\models\TRANSFERGOOOOOOOOOOOOOOD\low_training/model.ckpt',model_path=cell_mask_model_path, encoder_name="mit_b2" ,learning_rate=learning_rate)
 #model_train = model.Model.load_from_checkpoint(r'C:\Users\Marcel\Desktop\models/model.ckpt',model_path=cell_mask_model_path, encoder_name="mit_b2" ,learning_rate=learning_rate)
-model_train = model.Model.load_from_checkpoint('E:/isl/data_set/model.ckpt', encoder_name="mit_b2" ,learning_rate=learning_rate)
+model_train = model.Model.load_from_checkpoint(r'E:\isl\data_set/model.ckpt',model_path=r'E:\isl\data_set/model.ckpt', encoder_name="mit_b2" ,learning_rate=learning_rate)
 # Second way:
 #model_train = model.Model(model_path=cell_mask_model_path, encoder_name="mit_b2" ,learning_rate=learning_rate)
 #model_train = model_train.load_from_checkpoint(r'E:\Data_sets\Github\timm\isl\data_set/model.ckpt',model_path=cell_mask_model_path, encoder_name="mit_b2" ,learning_rate=learning_rate)
@@ -63,14 +64,81 @@ model_train = model.Model.load_from_checkpoint('E:/isl/data_set/model.ckpt', enc
 # ------------------------------
 #trainer = pl.Trainer(accelerator='gpu', devices=1,num_nodes=1, max_epochs=1, default_root_dir = data.data_dir)
 
-num_batches_to_visualize = 5  # Set the number of batches you want to visualize
-images_per_batch = 5  # Max number of images per batch to display
 
+def plot_results(image, ground_truth_array, pr_mask_array):
+    plt.figure(figsize=(15, 8))
+
+    # Display original images
+    for j in range(3):  # Assuming 'image' has three channels
+        plt.subplot(1, 6, j + 1)
+        plt.imshow(image[:, :, j], cmap='gray')  
+        plt.title(f"Image Channel {j+1}")
+        plt.axis("off")
+
+    # Display ground truth mask
+    plt.subplot(1, 6, 4)
+    plt.imshow(ground_truth_array, cmap='gray')
+    plt.title("Ground Truth DAPI")
+    plt.axis("off")
+    
+    # Display predicted mask
+    plt.subplot(1, 6, 5)
+    plt.imshow(pr_mask_array, cmap='gray')
+    plt.title("Predicted DAPI")
+    plt.axis("off")
+
+    #normalized_image = (pr_mask_array - 0.5) * 1000
+    min_val = np.min(pr_mask_array)
+    max_val = np.max(pr_mask_array)
+
+    # Normalize to 0-255
+    normalized_pr_mask = (pr_mask_array - min_val) / (max_val - min_val) * 255
+    normalized_image = normalized_pr_mask.astype(np.uint8)  # Convert to unsigned byte type
+
+    plt.subplot(1, 6, 6)
+    plt.imshow(normalized_image, cmap='gray')
+    plt.title("Predicted DAPI balanced")
+    plt.axis("off")
+
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_pcc(normalized_image,ground_truth_array):
+
+    # Calculate Pearson correlation coefficient
+    correlation, _ = pearsonr(normalized_image.flatten(), ground_truth_array.flatten())
+
+    plt.figure(figsize=(8, 6))  # Set the figure size
+
+    # Determine colors: points where predicted value is higher than ground truth are red, others are blue
+    colors = ['red' if pred > gt else 'blue' for pred, gt in zip(normalized_image.flatten(), ground_truth_array.flatten())]
+
+    # Create scatter plot
+    plt.scatter(normalized_image.flatten(), ground_truth_array.flatten(), color=colors, alpha=0.5, label=f"Pearson: {correlation:.2f}")
+    plt.plot([min(normalized_image.min(), ground_truth_array.min()), max(normalized_image.max(), ground_truth_array.max())], 
+            [min(normalized_image.min(), ground_truth_array.min()), max(normalized_image.max(), ground_truth_array.max())], 
+            'r--', linewidth=2)  # Red dashed line showing the line of perfect correlation
+
+    # Label the axes and add title and legend
+    plt.xlabel("Predicted DAPI (normalized)")
+    plt.ylabel("Ground Truth DAPI")
+    plt.title("Correlation Plot between Predicted and Ground Truth DAPI")
+    plt.legend()
+
+    plt.show()
+
+num_batches_to_visualize = 200 
+images_per_batch = 1 
+
+all_pcc = []
+print(f"Number of batches: {len(test_loader)}")
+print(f"Number of samples: {len(test_loader.dataset)}")
 # Iterate over the test loader
 for batch_index, batch in enumerate(test_loader):
     if batch_index >= num_batches_to_visualize:
         break
-
+    print(f"Batch number: {batch_index}")
     with torch.no_grad():
         model_train.eval()  # Set the model to evaluation mode
         logits = model_train(batch[0])  # Get model output for the batch
@@ -80,66 +148,40 @@ for batch_index, batch in enumerate(test_loader):
     for i, (image, gt_mask, pr_mask) in enumerate(zip(batch[0], batch[1], pr_masks)):
         if i >= images_per_batch:
             break  # Display only a limited number of images per batch
-
-        plt.figure(figsize=(15, 8))
-
-        # Print out types and shapes for debugging
-        print(pr_mask.numpy().dtype, gt_mask.numpy().dtype)
-        print(image.shape)
-        print(gt_mask.shape)
-        print(pr_mask.shape)
+        print(f"Image: {i}")
+        
+        #print(pr_mask.numpy().dtype, gt_mask.numpy().dtype)
+        #print(image.shape)
+        #print(gt_mask.shape)
+        #print(pr_mask.shape)
 
         image = image.numpy().transpose(1, 2, 0)  # Adjust dimensions for plotting if necessary
         ground_truth_array = gt_mask.numpy().squeeze(0)
         pr_mask_array = pr_mask.numpy().squeeze(0)
+        
+        plot_results(image, ground_truth_array, pr_mask_array)
 
-        # Display original images
-        for j in range(3):  # Assuming 'image' has three channels
-            plt.subplot(1, 7, j + 1)
-            plt.imshow(image[:, :, j], cmap='gray')  # Adjust indexing if your data is formatted differently
-            plt.title(f"Image Channel {j+1}")
-            plt.axis("off")
+        min_val = np.min(pr_mask_array)
+        max_val = np.max(pr_mask_array)
+        # Normalize to 0-255
+        normalized_pr_mask = (pr_mask_array - min_val) / (max_val - min_val) * 255
+        normalized_image = normalized_pr_mask.astype(np.uint8)  # Convert to unsigned byte type
+        correlation, _ = pearsonr(normalized_image.flatten(), ground_truth_array.flatten())
 
-        # Display ground truth mask
-        plt.subplot(1, 7, 4)
-        plt.imshow(ground_truth_array, cmap='gray')
-        plt.title("Ground Truth DAPI")
-        plt.axis("off")
+        #plot_pcc(normalized_image,ground_truth_array)
 
-        # Display predicted mask
-        plt.subplot(1, 7, 5)
-        plt.imshow(pr_mask_array, cmap='gray')
-        plt.title("Predicted DAPI")
-        plt.axis("off")
+        all_pcc.append(correlation)
 
 
-        pr_mask_array = pr_mask_array - pr_mask_array.min()
-        pr_mask_array = pr_mask_array / pr_mask_array.max()
+plt.figure(figsize=(8, 6))
+plt.hist(all_pcc, bins=10, color='skyblue', edgecolor='black') 
 
-        # Apply gamma correction to darken the image
-        gamma = 0.5  # Gamma < 1 will darken the image
-        darker_image = np.power(pr_mask_array, gamma)
+plt.xlabel('Pearson Correlation Coefficient (PCC)')
+plt.ylabel('Number of PCC scores')
 
-        plt.subplot(1, 7, 6)
-        plt.imshow(darker_image, cmap='gray')
-        plt.title("Predicted DAPI balanced")
-        plt.axis("off")
+mean_corr = np.mean(all_pcc)
+std_corr = np.std(all_pcc)
 
-        min_val = pr_mask_array.min()
-        normalized_image = pr_mask_array - min_val
-        plt.subplot(1, 7, 7)
-        plt.imshow(normalized_image, cmap='gray')
-        plt.title("Predicted DAPI balanced")
-        plt.axis("off")
+print(f"{mean_corr:.2f}±{std_corr:.2f}")
 
-        plt.tight_layout()
-        plt.show()
-
-
-# Validate model
-    
-#valid_metrics = trainer.validate(model_train, dataloaders=val_loader, verbose=False)
-#pprint(valid_metrics)
-#print(type(valid_metrics))
-#test_metrics = trainer.test(model_train, dataloaders=test_loader, verbose=False)
-#pprint(test_metrics)
+plt.show()

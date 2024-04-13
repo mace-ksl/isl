@@ -1,0 +1,9 @@
+---
+
+learning_rate: 0.001
+batch_size: 5
+max_epochs: 10
+crop_height: 256
+crop_width: 256
+split_name: 'split_1_cropped'
+dapi_model_path: 'C:/Users/Marcel/Desktop/models/DAPI/DAPI_second_ok/model.ckpt'
