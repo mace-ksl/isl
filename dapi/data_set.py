@@ -3,7 +3,6 @@ from PIL import Image,ImageSequence
 import numpy as np
 import torch 
 from torch.utils.data import DataLoader,TensorDataset
-import augment
 import plot
 from skimage import io as skio
 
@@ -55,7 +54,7 @@ class DataSet():
         
         file_path = os.path.join(os.path.join(self.data_dir,"tiff"),file)
         image = skio.imread(file_path)
-        return image[:,:,1:2]
+        return image[:, :, 1:2]
 
     def get_input_images_as_array(self, split_dir, mode):
         """
@@ -104,6 +103,7 @@ class DataSet():
             split = line.strip()
             image_path_dapi = split+"_ch4.tiff"
             image_array_dapi = self.generate_output_image(image_path_dapi)
+            #print(image_array_dapi.shape)
             # Transpose array from (H, W, C) to (C, H, W)
             transposed_array = np.transpose(image_array_dapi, (2, 0,1))
             stacked_arrays.append(transposed_array)

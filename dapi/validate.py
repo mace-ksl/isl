@@ -51,7 +51,7 @@ train_loader, test_loader = data.create_torch_data_loader(x_train=data_train_in,
 # First way:
 #model_train = model.Model.load_from_checkpoint(r'C:\Users\Marcel\Desktop\models\TRANSFERGOOOOOOOOOOOOOOD\low_training/model.ckpt',model_path=cell_mask_model_path, encoder_name="mit_b2" ,learning_rate=learning_rate)
 #model_train = model.Model.load_from_checkpoint(r'C:\Users\Marcel\Desktop\models/model.ckpt',model_path=cell_mask_model_path, encoder_name="mit_b2" ,learning_rate=learning_rate)
-model_train = model.Model.load_from_checkpoint('E:/isl/data_set/model.ckpt', encoder_name="mit_b2" ,learning_rate=learning_rate)
+model_train = model.Model.load_from_checkpoint(r'E:\models\DAPI_augmented\model1/model.ckpt', encoder_name="mit_b2" ,learning_rate=learning_rate)
 # Second way:
 #model_train = model.Model(model_path=cell_mask_model_path, encoder_name="mit_b2" ,learning_rate=learning_rate)
 #model_train = model_train.load_from_checkpoint(r'E:\Data_sets\Github\timm\isl\data_set/model.ckpt',model_path=cell_mask_model_path, encoder_name="mit_b2" ,learning_rate=learning_rate)
@@ -84,7 +84,6 @@ for batch_index, batch in enumerate(test_loader):
 
     with torch.no_grad():
         model_train.eval()  # Set the model to evaluation mode
-        
         # Crop and prepare images for model input
         cropped_images = torch.stack([crop_to_2048(img) for img in batch[0]])
         logits = model_train(cropped_images)

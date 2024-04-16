@@ -52,7 +52,7 @@ print(f"Load: {cell_mask_model_path}")
 # Load transfer learning model (better)
 # First way:
 #model_train = model.Model.load_from_checkpoint(r'C:\Users\Marcel\Desktop\models/model.ckpt',model_path=cell_mask_model_path, encoder_name="mit_b2" ,learning_rate=learning_rate)
-model_train = model.Model.load_from_checkpoint(r'E:\Data_sets\Github\timm\isl\data_set/model.ckpt',model_path=cell_mask_model_path, encoder_name="mit_b2" ,learning_rate=learning_rate)
+model_train = model.Model.load_from_checkpoint(r'E:\models\TripleLoss/model.ckpt',model_path=cell_mask_model_path, encoder_name="mit_b2" ,learning_rate=learning_rate)
 # Second way:
 #model_train = model.Model(model_path=cell_mask_model_path, encoder_name="mit_b2" ,learning_rate=learning_rate)
 #model_train = model_train.load_from_checkpoint(r'E:\Data_sets\Github\timm\isl\data_set/model.ckpt',model_path=cell_mask_model_path, encoder_name="mit_b2" ,learning_rate=learning_rate)
@@ -65,64 +65,70 @@ model_train = model.Model.load_from_checkpoint(r'E:\Data_sets\Github\timm\isl\da
 #trainer = pl.Trainer(accelerator='gpu', devices=1,num_nodes=1, max_epochs=1, default_root_dir = data.data_dir)
 
 
-# Result visualizations
-batch = next(iter(test_loader))
-with torch.no_grad():
-    model_train.eval()
-    logits = model_train(batch[0])
-pr_masks = logits.sigmoid()
+num_batches_to_visualize = 20 
+images_per_batch = 1 
 
+for batch_index, batch in enumerate(test_loader):
+    if batch_index >= num_batches_to_visualize:
+        break
+    print(f"Batch number: {batch_index}")
+    with torch.no_grad():
+        model_train.eval()  # Set the model to evaluation mode
+        logits = model_train(batch[0])  # Get model output for the batch
+    pr_masks = logits.sigmoid()  # Apply sigmoid to convert logits to probabilities
 
-for image, gt_mask, pr_mask in zip(batch[0], batch[1], pr_masks):
-    plt.figure(figsize=(15, 8))
-    print(pr_mask.numpy().dtype,gt_mask.numpy().dtype)
-    print(image.shape)
-    print(gt_mask.shape)
-    print(pr_mask.shape)
-    image = image.numpy()
-    for i in range(3):
-        plt.subplot(1, 8, i + 1)
-        plt.imshow(image[i], cmap='gray')
-        plt.title(f"Image {i+1}")
+    # Zip together the images, ground truth masks, and predicted masks
+    for i, (image, gt_mask, pr_mask) in enumerate(zip(batch[0], batch[1], pr_masks)):
+        if i >= images_per_batch:
+            break  # Display only a limited number of images per batch
+        
+        #image = image.numpy().transpose(1, 2, 0)  # Adjust dimensions for plotting if necessary
+        #ground_truth_array = gt_mask.numpy().squeeze(0)
+        #pr_mask_array = pr_mask.numpy().squeeze(0)
+
+        plt.figure(figsize=(15, 8))
+        print(pr_mask.numpy().dtype,gt_mask.numpy().dtype)
+        print(image.shape)
+        print(gt_mask.shape)
+        print(pr_mask.shape)
+        image = image.numpy()
+        for i in range(3):
+            plt.subplot(1, 8, i + 1)
+            plt.imshow(image[i], cmap='gray')
+            plt.title(f"Image {i+1}")
+            plt.axis("off")
+
+        ground_truth_array = gt_mask.numpy().squeeze(0)   
+        #print(ground_truth_array.shape)
+        plt.subplot(1, 8, 4)
+        plt.imshow(ground_truth_array[0], cmap='gray')
+        plt.title("Ground truth topology")
         plt.axis("off")
 
-    ground_truth_array = gt_mask.numpy().squeeze(0)   
-    #print(ground_truth_array.shape)
-    plt.subplot(1, 8, 4)
-    plt.imshow(ground_truth_array[0], cmap='gray')
-    plt.title("Ground truth topology")
-    plt.axis("off")
+        plt.subplot(1, 8, 5)
+        plt.imshow(ground_truth_array[1], cmap='gray')
+        plt.title("Ground truth semantic")
+        plt.axis("off")
 
-    plt.subplot(1, 8, 5)
-    plt.imshow(ground_truth_array[1], cmap='gray')
-    plt.title("Ground truth semantic")
-    plt.axis("off")
+        pr_mask_array = pr_mask.numpy()
+        
+        thresholded_array = (pr_mask_array[0] <= 0.5).astype(int)
+        plt.subplot(1, 8, 6)
+        plt.imshow(thresholded_array,cmap='gray')
+        plt.title("Mask semantic")
+        plt.axis("off")
 
-    pr_mask_array = pr_mask.numpy()
-    plt.subplot(1, 8, 6)
-    plt.imshow(pr_mask_array[0],cmap='gray')
-    plt.title("Mask topology")
-    plt.axis("off")
+        plt.subplot(1, 8, 7)
+        plt.imshow(pr_mask_array[1],cmap='gray')
+        plt.title("Mask topology")
+        plt.axis("off")
 
-    plt.subplot(1, 8, 7)
-    plt.imshow(pr_mask_array[1],cmap='gray')
-    plt.title("Mask semantic")
-    plt.axis("off")
-
-    print(pr_mask_array[1].shape)
-    pr_mask[1][pr_mask_array[1] > 0.5] = 1
-    plt.subplot(1, 8, 8)
-    plt.imshow(pr_mask_array[1],cmap='gray')
-    plt.title("Mask semantic")
-    plt.axis("off")
-    
-    plt.tight_layout() 
-    plt.show()
-
-# Validate model
-    
-#valid_metrics = trainer.validate(model_train, dataloaders=val_loader, verbose=False)
-#pprint(valid_metrics)
-#print(type(valid_metrics))
-#test_metrics = trainer.test(model_train, dataloaders=test_loader, verbose=False)
-#pprint(test_metrics)
+        print(pr_mask_array[1].shape)
+        pr_mask[1][pr_mask_array[1] > 0.5] = 1
+        plt.subplot(1, 8, 8)
+        plt.imshow(pr_mask_array[1],cmap='gray')
+        plt.title("Mask semantic")
+        plt.axis("off")
+        
+        plt.tight_layout() 
+        plt.show()

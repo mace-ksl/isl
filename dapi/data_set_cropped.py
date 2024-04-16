@@ -28,7 +28,7 @@ class DataSet():
         Input:
             - mode: [bf,pc] brightfield or phase contrast
         """
-        file_path = os.path.join(os.path.join(self.data_dir,"tiff224"),file)
+        file_path = os.path.join(os.path.join(self.data_dir,"tiff224_dapi_resized"),file)
         if mode == "bf":
             image = skio.imread(file_path)
             # brightfield image  H, W= H, W 
@@ -53,7 +53,7 @@ class DataSet():
             Grayscale 16 bit images
         """
         
-        file_path = os.path.join(os.path.join(self.data_dir,"tiff224"),file)
+        file_path = os.path.join(os.path.join(self.data_dir,"tiff224_dapi_resized"),file)
         image = skio.imread(file_path)
         return image[:, :, np.newaxis]
 

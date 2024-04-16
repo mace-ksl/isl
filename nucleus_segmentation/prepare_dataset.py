@@ -8,7 +8,9 @@ import numpy as np
 from scipy import ndimage
 from PIL import Image
 import plot
-
+import torchvision.transforms.functional as TF
+import torchvision.transforms as transforms
+"""
 def randomCrop(img, mask, width=256, height=256):
     assert img.shape[1] >= height
     assert img.shape[2] >= width
@@ -22,11 +24,66 @@ def randomCrop(img, mask, width=256, height=256):
     mask = mask[:, y:y+height, x:x+width]
 
     return img, mask
+"""
+def randomCrop(img, mask, width=256, height=256):
+    assert img.shape[1] >= height
+    assert img.shape[2] >= width
+    assert img.shape[1] == mask.shape[1]
+    assert img.shape[2] == mask.shape[2]
 
+    # Set the seed for reproducibility across img and mask
+    seed = random.randint(0, 2**32 - 1)
+    random.seed(seed)
+    torch.manual_seed(seed)
+    
+    if img.dtype == np.uint16 or img.dtype == np.uintc:
+            img = img.astype(np.int32)
+    if mask.dtype == np.uint16 or mask.dtype == np.uintc:
+            mask = mask.astype(np.int32)
+
+
+    # Convert numpy array to tensor and scale from uint16 to float range [0, 1]
+    img = torch.from_numpy(img).float() / 65535
+    mask = torch.from_numpy(mask).float() / 65535
+
+    # Resize the images
+    img = TF.resize(img, [width, height])
+    mask = TF.resize(mask, [width, height])
+
+    """
+    # Crop
+    i, j, h, w = transforms.RandomCrop.get_params(img, output_size=(height, width))
+    img = TF.crop(img, i, j, h, w)
+    mask = TF.crop(mask, i, j, h, w)
+    
+
+    random_degree = random.randint(10, 50)
+    # Random affine transformation
+    angle, translations, scale, shear = transforms.RandomAffine.get_params(
+        
+        degrees=(-1*random_degree, random_degree), translate=(0.1, 0.1), scale_ranges=(0.8, 1.2), shears=None, img_size=img.shape[1:]
+    )
+    img = TF.affine(img, angle=angle, translate=translations, scale=scale, shear=shear)
+    mask = TF.affine(mask, angle=angle, translate=translations, scale=scale, shear=shear)
+
+
+    # Random horizontal and vertical flip
+    if random.random() > 0.5:
+        img = TF.hflip(img)
+        mask = TF.hflip(mask)
+    if random.random() > 0.5:
+        img = TF.vflip(img)
+        mask = TF.vflip(mask)
+    """
+    # Convert back to numpy uint16
+    img = (img * 65535).numpy().astype(np.uint16)
+    mask = (mask * 65535).numpy().astype(np.uint16)
+
+    return img, mask
 def crop_dataset(input,output, width=256,height=256):
     # Number of patches to extract per image
-    num_patches_per_image = 5
-    path = r"E:\isl\data_set\tiff224"
+    num_patches_per_image = 1
+    path = r"E:\isl\data_set\tiff256_nucleus_resized"
 
     # number of files
     files_list = os.listdir(path)
@@ -64,6 +121,8 @@ def crop_dataset(input,output, width=256,height=256):
                 labeled_mask, num_features = ndimage.label(binary_mask2)  # Convert tensor to numpy array and label components
                 component_sizes = ndimage.sum(binary_mask2, labeled_mask, range(num_features + 1))
                 ok2 = np.any(component_sizes >= 4000)
+                ok2 = True
+                ok = True
                 if ok and ok2:
                     normalized_data = (cropped_data_patch - cropped_data_patch.min()) / (cropped_data_patch.max() - cropped_data_patch.min())
                     print(normalized_data.shape,normalized_mask.shape)

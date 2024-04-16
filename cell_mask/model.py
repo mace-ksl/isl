@@ -1,16 +1,14 @@
-import segmentation_models_pytorch as smp
+import segmentation_models_pytorch as smp 
 import torch
 import pytorch_lightning as pl 
 import torchseg
-import torch.nn as nn
-import io
-import numpy as np
-
 class Model(pl.LightningModule):
 
-    def __init__(self, model_path,encoder_name,learning_rate, **kwargs):
+    def __init__(self, encoder_name, **kwargs):
         super().__init__()
-
+        #self.model = smp.create_model(
+        #    arch, encoder_name=encoder_name, in_channels=in_channels, classes=out_classes, **kwargs
+        #)
         self.model = torchseg.Unet(
                     "maxvit_small_tf_224",
                     in_channels=3,
@@ -24,27 +22,11 @@ class Model(pl.LightningModule):
         params = smp.encoders.get_preprocessing_params(encoder_name)
         self.register_buffer("std", torch.tensor(params["std"]).view(1, 3, 1, 1))
         self.register_buffer("mean", torch.tensor(params["mean"]).view(1, 3, 1, 1))
-        self.learning_rate = learning_rate
-        
-        # Load pretrained DAPI model
-        checkpoint = torch.load(model_path)
-        cleared_state_dict = {key.replace('model.', '', 1) if key.startswith('model.') else key: value for key, value in checkpoint['state_dict'].items()}
-        self.model.load_state_dict(cleared_state_dict, strict=False)
-        
-        self.loss_fn = torch.nn.BCEWithLogitsLoss()
-        #self.loss_fn = smp.losses.DiceLoss(smp.losses.BINARY_MODE, from_logits=True)
-    
-    def jaccard_index(preds, labels):
 
-        preds = (preds > 0.5).float()
-     
-        intersection = torch.sum(preds * labels)
-        union = torch.sum(preds + labels) - intersection
-        
-        iou = intersection / union
-        
-        return iou
-    
+        # for image segmentation dice loss could be the best first choice
+        #self.loss_fn = smp.losses.DiceLoss(smp.losses.BINARY_MODE, from_logits=True)
+        self.loss_fn = torch.nn.L1Loss()
+        #self.loss_fn = torch.nn.MSELoss()
     def forward(self, image):
         # normalize image here
         image = (image - self.mean) / self.std
@@ -57,6 +39,11 @@ class Model(pl.LightningModule):
     def shared_step(self, batch, stage):
         
         image = batch[0]
+        #print(image.shape)
+        #image = image.permute(0, 3, 1, 2)
+        #print(image.shape)
+        # Shape of the image should be (batch_size, num_channels, height, width)
+        # if you work with grayscale images, expand channels dim to have [batch_size, 1, height, width]
         assert image.ndim == 4
 
         # Check that image dimensions are divisible by 32,
@@ -87,15 +74,15 @@ class Model(pl.LightningModule):
 
         logits_mask = self.forward(image)
 
-
-        #loss = self.loss_fn(logits_mask, mask)
-        #loss = self.jaccard_loss(logits_mask, mask)
-
+        # Predicted mask contains logits, and loss_fn param `from_logits` is set to True
         loss = self.loss_fn(logits_mask, mask)
 
+        # Lets compute metrics for some threshold
+        # first convert mask values to probabilities, then
+        # apply thresholding
         prob_mask = logits_mask.sigmoid()
-        pred_mask = (prob_mask > 0.5).float()
-
+        #pred_mask = (prob_mask > 0.5).float()
+        pred_mask = prob_mask
         # We will compute IoU metric by two ways
         #   1. dataset-wise
         #   2. image-wise
@@ -118,8 +105,15 @@ class Model(pl.LightningModule):
         fn = torch.cat([x["fn"] for x in outputs])
         tn = torch.cat([x["tn"] for x in outputs])
 
+        # per image IoU means that we first calculate IoU score for each image
+        # and then compute mean over these scores
         per_image_iou = smp.metrics.iou_score(tp, fp, fn, tn, reduction="micro-imagewise")
 
+        # dataset IoU means that we aggregate intersection and union over whole dataset
+        # and then compute IoU score. The difference between dataset_iou and per_image_iou scores
+        # in this particular case will not be much, however for dataset
+        # with "empty" images (images without target class) a large gap could be observed.
+        # Empty images influence a lot on per_image_iou and much less on dataset_iou.
         dataset_iou = smp.metrics.iou_score(tp, fp, fn, tn, reduction="micro")
 
         metrics = {
@@ -148,4 +142,4 @@ class Model(pl.LightningModule):
         return self.shared_epoch_end(outputs, "test")
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=self.learning_rate) # lr=0.0001 
+        return torch.optim.Adam(self.parameters(), lr=0.000001) # lr=0.0001 
