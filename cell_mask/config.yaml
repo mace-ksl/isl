@@ -5,4 +5,4 @@ batch_size: 1
 max_epochs: 1
 crop_height: 256
 crop_width: 256
-split_name: 'split_cy5_cropped'
+split_name: 'split_cy5'

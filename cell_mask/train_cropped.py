@@ -1,4 +1,4 @@
-import data_set
+import data_set_cropped
 import os
 import matplotlib.pyplot as plt
 import model
@@ -35,7 +35,7 @@ split_name = config['split_name']
 # Create data set object
 components = current_path.split(os.path.sep)
 data_set_path= components[0] + os.path.sep + os.path.join(*components[1:-1], 'data_set')
-data = data_set.DataSet(data_set_path)
+data = data_set_cropped.DataSet(data_set_path)
 
 data_train_in = data.get_input_images_as_array(split_name,"train")
 data_train_out = data.get_output_images_as_array(split_name,"train")

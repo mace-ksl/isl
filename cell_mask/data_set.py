@@ -30,7 +30,7 @@ class DataSet():
         First three .tiff images for 3 channel input 
         Color = 1 -> grayscale 16 bit
         """
-        image = Image.open(os.path.join(os.path.join(self.data_dir,"cell_mask256"),file))
+        image = Image.open(os.path.join(os.path.join(self.data_dir,"tiff"),file))
         raw_image = []
         for i, frame in enumerate(ImageSequence.Iterator(image)):
             #print(f"Frame {i + 1} shape: {frame.size}")
@@ -50,7 +50,7 @@ class DataSet():
         First three .tiff images for 3 channel input 
         Color = 1 -> grayscale 16 bit
         """
-        image = Image.open(os.path.join(os.path.join(self.data_dir,"cell_mask256"),file))
+        image = Image.open(os.path.join(os.path.join(self.data_dir,"tiff"),file))
         raw_image = []
         for i, frame in enumerate(ImageSequence.Iterator(image)):
             #print(f"Frame {i + 1} shape: {frame.size}")
