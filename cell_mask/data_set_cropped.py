@@ -4,7 +4,7 @@ import numpy as np
 import torch 
 from torch.utils.data import DataLoader,TensorDataset
 import augment
-
+from skimage import io as skio
 class DataSet():
     def __init__(self, data_dir):
         """
@@ -30,17 +30,10 @@ class DataSet():
         First three .tiff images for 3 channel input 
         Color = 1 -> grayscale 16 bit
         """
-        image = Image.open(os.path.join(os.path.join(self.data_dir,"cell_mask256"),file))
-        raw_image = []
-        for i, frame in enumerate(ImageSequence.Iterator(image)):
-            #print(f"Frame {i + 1} shape: {frame.size}")
-            #print(f"Frame {i + 1} mode: {frame.mode}")
-            raw_image.append(np.array(frame))
-            if i == 2:
-                break
-                
-        # input image  C, H, W = 3, H, W
-        return np.array(raw_image)
+        file_path = os.path.join(os.path.join(self.data_dir,"cell_mask256"),file)
+        image = skio.imread(file_path)
+        
+        return image
 
     def generate_output_image(self,file):
         """
@@ -50,16 +43,10 @@ class DataSet():
         First three .tiff images for 3 channel input 
         Color = 1 -> grayscale 16 bit
         """
-        image = Image.open(os.path.join(os.path.join(self.data_dir,"cell_mask256"),file))
-        raw_image = []
-        for i, frame in enumerate(ImageSequence.Iterator(image)):
-            #print(f"Frame {i + 1} shape: {frame.size}")
-            #print(f"Frame {i + 1} mode: {frame.mode}")
-            raw_image.append(np.array(frame))
-            # only the first images for one channel output
-            break
-        # return: input image  C, H, W = 3, H, W
-        return np.array(raw_image)
+        file_path = os.path.join(os.path.join(self.data_dir,"cell_mask256"),file)
+        image = skio.imread(file_path)
+        
+        return image
 
         
     def get_input_images_as_array(self, split_dir, mode):
@@ -78,12 +65,18 @@ class DataSet():
         stacked_arrays = []
         for line in lines:
             #split[0] = microscopy type (e.g. TWDIC3), split[1] = image id  (e.g. s54)
-            split = line.strip().split()
-            image_path = split[0]+"_w5DIC-oil-40x_"+split[1]+".TIF"
+            split = line.strip()
+            image_path = split + "_dic_1.tiff"
+            image_path2 = split + "_dic_2.tiff"
+            image_path3 = split + "_dic_3.tiff"
             image_array = self.generate_input_image(image_path)
-            stacked_arrays.append(image_array)
+            image_array2 = self.generate_input_image(image_path2)
+            image_array3 = self.generate_input_image(image_path3)
             
-        return np.stack(stacked_arrays, axis=0)
+            images_stacked = np.stack([image_array, image_array2, image_array3])
+            stacked_arrays.append(images_stacked)
+        
+        return np.stack(stacked_arrays)
     
     def get_output_images_as_array(self, split_dir, mode):
         """
@@ -100,12 +93,13 @@ class DataSet():
         stacked_arrays = []
         for line in lines:
             #split[0] = microscopy type (e.g. TWDIC3), split[1] = image id  (e.g. s54)
+
             split = line.strip().split()
-            image_path = split[0]+"_w4Cy5_"+split[1]+".TIF"
+            image_path = split[0]+ "_cellmask.png"
             image_array = self.generate_output_image(image_path)
-            stacked_arrays.append(image_array)
+            stacked_arrays.append(np.expand_dims(image_array, axis=0))
             
-        return np.stack(stacked_arrays, axis=0)
+        return np.stack(stacked_arrays)
     
     def create_torch_data_loader(self,x_train,y_train,x_val,y_val, x_test,y_test, batch_size=1,height=224,width=224):
         """

@@ -1,2 +1,2 @@
-r05c08_f01
-r05c04_f15
+TWDIC2 s15
+TWDIC2 s28

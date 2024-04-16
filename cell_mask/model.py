@@ -4,7 +4,7 @@ import pytorch_lightning as pl
 import torchseg
 class Model(pl.LightningModule):
 
-    def __init__(self, encoder_name, **kwargs):
+    def __init__(self, encoder_name,learning_rate, **kwargs):
         super().__init__()
         #self.model = smp.create_model(
         #    arch, encoder_name=encoder_name, in_channels=in_channels, classes=out_classes, **kwargs
@@ -23,6 +23,7 @@ class Model(pl.LightningModule):
         self.register_buffer("std", torch.tensor(params["std"]).view(1, 3, 1, 1))
         self.register_buffer("mean", torch.tensor(params["mean"]).view(1, 3, 1, 1))
 
+        self.learning_rate = learning_rate
         # for image segmentation dice loss could be the best first choice
         #self.loss_fn = smp.losses.DiceLoss(smp.losses.BINARY_MODE, from_logits=True)
         self.loss_fn = torch.nn.L1Loss()
@@ -142,4 +143,4 @@ class Model(pl.LightningModule):
         return self.shared_epoch_end(outputs, "test")
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=0.000001) # lr=0.0001 
+        return torch.optim.Adam(self.parameters(), lr=self.learning_rate) # lr=0.0001 
