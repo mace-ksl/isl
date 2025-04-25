@@ -1,7 +1,7 @@
-## Cell and Nucleus Segmentation with In Silico Labeling using U-Net MaxViT
-**ISL Project**
+# Transformer-based method for in silico labeling to enable cell and nucleus segmentation by Marcel Kessler
+### Cell and Nucleus Segmentation with In Silico Labeling using U-Net MaxViT:
 
-Training a U-Net MaxViT architecture for nucleus and cell segmentation, using in silico labeling.
+![Segmentation Results](results/Overall_Results.png)
 
 ## Prerequisites :wrench:
 1. **The libraries used in this project can be installed with:**
@@ -30,3 +30,14 @@ Training a U-Net MaxViT architecture for nucleus and cell segmentation, using in
 ```
 - **.tiff/**: contains the .tiff and .png images of the training data
 - **data_set_split/**: contain the different .txt files with the splitted data probes
+
+
+
+## Architecture References :bookmark:
+
+1. T. Bonte et al. “Learning with minimal effort: leveraging in silico labeling
+ for cell and nucleus segmentation”. In: European Conference on Computer
+ Vision. Springer. 2022, pp. 423–436. [https://arxiv.org/pdf/2301.03914](https://arxiv.org/pdf/2301.03914)
+
+2. A. Rehman and A. Khan. “MaxViT-UNet: Multi-axis attention for medical
+ image segmentation”. In: arXiv preprint arXiv:2305.08396 (2023). [https://arxiv.org/pdf/2305.08396](https://arxiv.org/pdf/2305.08396)
